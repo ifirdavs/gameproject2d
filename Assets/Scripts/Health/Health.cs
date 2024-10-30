@@ -3,7 +3,7 @@ using System.Collections;
 
 public class Health : MonoBehaviour
 {
-    [Header ("Health")]
+    [Header("Health")]
     [SerializeField] private float startingHealth;
     public float currentHealth { get; private set; }
     private Animator anim;
@@ -21,16 +21,25 @@ public class Health : MonoBehaviour
     [Header("Death Sound")]
     [SerializeField] private AudioClip deathSound;
     [SerializeField] private AudioClip hurtSound;
+    
+    private UIManager uiManager;
+
+    [Header("Game Over")]
+    private int deathCount = 0; // Counter to track number of deaths
+    private const int maxDeaths = 3; // Max deaths before triggering Game Over
 
     private void Awake()
     {
         currentHealth = startingHealth;
         anim = GetComponent<Animator>();
         spriteRend = GetComponent<SpriteRenderer>();
+        uiManager = FindObjectOfType<UIManager>();
     }
+
     public void TakeDamage(float _damage)
     {
         if (invulnerable) return;
+
         currentHealth = Mathf.Clamp(currentHealth - _damage, 0, startingHealth);
 
         if (currentHealth > 0)
@@ -43,22 +52,50 @@ public class Health : MonoBehaviour
         {
             if (!dead)
             {
-                //Deactivate all attached component classes
-                foreach (Behaviour component in components)
-                    component.enabled = false;
-
-                anim.SetBool("grounded", true);
-                anim.SetTrigger("die");
-
-                dead = true;
-                SoundManager.instance.PlaySound(deathSound);
+                HandleDeath();
             }
         }
     }
+
+    private void HandleDeath()
+    {
+        // Increment the death count
+        deathCount++;
+
+        // Deactivate all attached component classes
+        foreach (Behaviour component in components)
+            component.enabled = false;
+
+        anim.SetBool("grounded", true);
+        anim.SetTrigger("die");
+
+        dead = true;
+        SoundManager.instance.PlaySound(deathSound);
+
+        // Check if the player has died twice
+        if (deathCount >= maxDeaths)
+        {
+            // Trigger Game Over scene
+            uiManager.GameOver();
+        }
+        else
+        {
+            // Optional: Respawn logic for first death
+            StartCoroutine(RespawnCoroutine());
+        }
+    }
+
+    private IEnumerator RespawnCoroutine()
+    {
+        yield return new WaitForSeconds(2f); // Wait before respawn (optional)
+        Respawn();
+    }
+
     public void AddHealth(float _value)
     {
         currentHealth = Mathf.Clamp(currentHealth + _value, 0, startingHealth);
     }
+
     private IEnumerator Invunerability()
     {
         invulnerable = true;
@@ -73,12 +110,12 @@ public class Health : MonoBehaviour
         Physics2D.IgnoreLayerCollision(10, 11, false);
         invulnerable = false;
     }
+
     private void Deactivate()
     {
         gameObject.SetActive(false);
     }
 
-    //Respawn
     public void Respawn()
     {
         AddHealth(startingHealth);
@@ -87,7 +124,7 @@ public class Health : MonoBehaviour
         StartCoroutine(Invunerability());
         dead = false;
 
-        //Activate all attached component classes
+        // Activate all attached component classes
         foreach (Behaviour component in components)
             component.enabled = true;
     }
